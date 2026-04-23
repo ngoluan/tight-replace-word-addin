@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI proofreader</title>
+  <link rel="stylesheet" href="styles.css?v=20" />
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero panel">
+      <div class="hero-main">
+        <div class="eyebrow">AI proofreader</div>
+        <h1>AI proofreader</h1>
+       
+      </div>
+    </header>
+
+    <section class="workflow-strip" aria-label="Workflow steps">
+      <div class="workflow-chip is-active">
+        <span class="workflow-chip-step">1</span>
+        <span class="workflow-chip-text">Choose source</span>
+      </div>
+      <div class="workflow-chip">
+        <span class="workflow-chip-step">2</span>
+        <span class="workflow-chip-text">Instructions</span>
+      </div>
+      <div class="workflow-chip">
+        <span class="workflow-chip-step">3</span>
+        <span class="workflow-chip-text">Suggestions</span>
+      </div>
+      <div class="workflow-chip">
+        <span class="workflow-chip-step">4</span>
+        <span class="workflow-chip-text">Apply in Word</span>
+      </div>
+    </section>
+
+    <section class="panel section-panel">
+      <div class="section-header">
+        <div>
+          <div class="section-step">Step 1</div>
+          <div class="label-with-help section-title-row">
+            <h2>Choose the source text</h2>
+            <button
+              class="help-chip"
+              type="button"
+              data-tooltip="Choose whether the add-in should send the current Word selection or the full document. Manual pasted source text is still available in Advanced settings."
+              title="Choose whether the add-in should send the current Word selection or the full document. Manual pasted source text is still available in Advanced settings."
+              aria-label="Help for source text selection"
+            >?</button>
+          </div>
+          <p class="hint">
+            Choose whether edits should be based on the highlighted text or the full document.
+          </p>
+        </div>
+        <button
+          id="toggleLlmSectionBtn"
+          class="secondary section-toggle icon-button panel-toggle"
+          type="button"
+          aria-expanded="true"
+          aria-controls="llmSectionBody"
+          aria-label="Collapse section"
+          title="Collapse section"
+          data-expanded-icon="▾"
+          data-collapsed-icon="▸"
+          data-expanded-label="Collapse section"
+          data-collapsed-label="Expand section"
+        >▾</button>
+      </div>
+
+      <div id="llmSectionBody">
+                <div class="source-choice-grid" role="radiogroup" aria-label="Choose which text to send to the LLM">
+          <label id="sourceSelectionCard" class="source-choice-card" for="sourceModeSelection">
+            <input id="sourceModeSelection" class="source-choice-radio" type="radio" name="sourceMode" value="selection" checked />
+            <span class="source-choice-icon" aria-hidden="true">✎</span>
+            <span class="source-choice-copy">
+              <span class="source-choice-title">Highlighted text</span>
+              <span class="source-choice-description">Use only the text currently selected in Word. Best for focused edits and paragraph-level changes.</span>
+            </span>
+          </label>
+
+          <label id="sourceBodyCard" class="source-choice-card" for="sourceModeBody">
+            <input id="sourceModeBody" class="source-choice-radio" type="radio" name="sourceMode" value="body" />
+            <span class="source-choice-icon" aria-hidden="true">📄</span>
+            <span class="source-choice-copy">
+              <span class="source-choice-title">Whole document</span>
+              <span class="source-choice-description">Send the full Word document so the model can check broader context, cross-references, and consistency.</span>
+            </span>
+          </label>
+        </div>
+
+     
+
+        <div id="llmStatus" class="status neutral">Ready.</div>
+
+        <div id="advancedPanelBody" class="advanced-panel-shell hidden">
+          <div class="preset-card more-info-card floating-toggle-panel">
+            <div class="card-header compact-inline-header">
+              <div>
+                <h3>Settings and raw response</h3>
+                <p class="hint">Opened from the inline settings icon so the main editing view stays clean.</p>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-header">
+                <h3>Connection and generation settings</h3>
+                <p class="hint">Saved locally in this add-in so you do not need to re-enter them.</p>
+              </div>
+
+
+              <div class="settings-card nested-settings-card">
+                <div class="settings-card-header">
+                  <h3>API key</h3>
+                  <p class="hint">Stored locally in this add-in on this device/browser.</p>
+                </div>
+
+                <div class="api-key-settings-row">
+                  <div>
+                    <label class="label-with-help" for="llmApiKey">
+                      <span>API key</span>
+                      <button
+                        class="help-chip"
+                        type="button"
+                        data-tooltip="Google and ChatGPT / OpenAI presets use a Bearer API key. Internal and custom endpoints can leave this blank if authorization is not required."
+                        title="Google and ChatGPT / OpenAI presets use a Bearer API key. Internal and custom endpoints can leave this blank if authorization is not required."
+                        aria-label="Help for API key"
+                      >?</button>
+                    </label>
+                    <p id="apiKeyHint" class="hint field-hint">Google and ChatGPT / OpenAI presets require a key. Internal and custom can leave this blank if the endpoint does not require auth.</p>
+                  </div>
+                  <div class="api-key-settings-actions">
+                    <div id="apiKeyRequirementBadge" class="mini-badge warning">Required</div>
+                  </div>
+                </div>
+
+                <input
+                  id="llmApiKey"
+                  type="password"
+                  placeholder="Enter your API key"
+                  spellcheck="false"
+                />
+              </div>
+
+              <p class="hint">
+                Preset selection is shown at the top of the page for quick access. Use the fields below only if you want to override the preset endpoint, model, or generation settings.
+              </p>
+
+              <div class="form-grid form-grid-two">
+                <div>
+                  <label class="label-with-help" for="llmEndpoint">
+                    <span>Chat completions endpoint</span>
+                    <button
+                      class="help-chip"
+                      type="button"
+                      data-tooltip="The full HTTP endpoint for an OpenAI-compatible chat completions API. Google presets use Google's compatible endpoint. Internal uses your localhost endpoint."
+                      title="The full HTTP endpoint for an OpenAI-compatible chat completions API. Google presets use Google's compatible endpoint. Internal uses your localhost endpoint."
+                      aria-label="Help for chat completions endpoint"
+                    >?</button>
+                  </label>
+                  <input
+                    id="llmEndpoint"
+                    type="url"
+                    placeholder="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+                    spellcheck="false"
+                  />
+                </div>
+                <div>
+                  <label class="label-with-help" for="llmModel">
+                    <span>Model</span>
+                    <button
+                      class="help-chip"
+                      type="button"
+                      data-tooltip="Google Smart defaults to gemini-3.1-pro-preview. Google Fast defaults to gemini-3-flash-preview. Internal defaults to qwen/qwen3.5-35b-a3b."
+                      title="Google Smart defaults to gemini-3.1-pro-preview. Google Fast defaults to gemini-3-flash-preview. Internal defaults to qwen/qwen3.5-35b-a3b."
+                      aria-label="Help for model"
+                    >?</button>
+                  </label>
+                  <input
+                    id="llmModel"
+                    type="text"
+                    placeholder="gemini-3.1-pro-preview"
+                    spellcheck="false"
+                    value="gemini-3.1-pro-preview"
+                  />
+                </div>
+              </div>
+
+              <div class="form-grid form-grid-two">
+                <div>
+                  <label class="label-with-help" for="llmTemperature">
+                    <span>Temperature</span>
+                    <button
+                      class="help-chip"
+                      type="button"
+                      data-tooltip="Controls randomness. Lower values like 0.1 are better when you want stable, precise JSON edits. Higher values can be more creative but less consistent."
+                      title="Controls randomness. Lower values like 0.1 are better when you want stable, precise JSON edits. Higher values can be more creative but less consistent."
+                      aria-label="Help for temperature"
+                    >?</button>
+                  </label>
+                  <input
+                    id="llmTemperature"
+                    type="text"
+                    placeholder="0.1"
+                    spellcheck="false"
+                  />
+                </div>
+                <div>
+                  <label class="label-with-help" for="llmMaxTokens">
+                    <span>Max tokens</span>
+                    <button
+                      class="help-chip"
+                      type="button"
+                      data-tooltip="Upper bound for generated output length. If responses cut off, raise this. If your server is slow or returns too much text, lower it."
+                      title="Upper bound for generated output length. If responses cut off, raise this. If your server is slow or returns too much text, lower it."
+                      aria-label="Help for max tokens"
+                    >?</button>
+                  </label>
+                  <input
+                    id="llmMaxTokens"
+                    type="text"
+                    placeholder="4000"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="editor-section advanced-source-card">
+              <div class="card-header compact-inline-header">
+                <div>
+                  <h3>Source text override</h3>
+                  <p class="hint">Advanced only. Paste or load exact source text here if you want to override the main highlighted-text / whole-document choice for the next request.</p>
+                </div>
+              </div>
+
+              <label class="label-with-help" for="documentContextInput">
+                <span>Manual source text</span>
+                <button
+                  class="help-chip"
+                  type="button"
+                  data-tooltip="When this box contains text, the add-in uses it as an advanced override until you clear it. This is useful for pasting a specific excerpt without changing the main workflow."
+                  title="When this box contains text, the add-in uses it as an advanced override until you clear it. This is useful for pasting a specific excerpt without changing the main workflow."
+                  aria-label="Help for manual source text"
+                >?</button>
+              </label>
+              <textarea
+                id="documentContextInput"
+                class="textarea-medium"
+                spellcheck="false"
+                placeholder="Paste a document excerpt here only when you want to override the main source choice."
+              ></textarea>
+
+              <div class="row buttons wrap toolbar-row compact-tools">
+                <button id="loadSelectionBtn" type="button">Paste current selection</button>
+                <button id="loadBodyBtn" class="secondary" type="button">Paste whole document</button>
+                <button id="clearManualSourceBtn" class="secondary" type="button">Clear manual source</button>
+              </div>
+            </div>
+
+            <div class="editor-section">
+              <label class="label-with-help" for="systemPromptInput">
+                <span>System instruction</span>
+                <button
+                  class="help-chip"
+                  type="button"
+                  data-tooltip="This is the standing instruction that tells the model to return tightly scoped edit JSON. Keep it strict so the model outputs valid arrays instead of free-form prose."
+                  title="This is the standing instruction that tells the model to return tightly scoped edit JSON. Keep it strict so the model outputs valid arrays instead of free-form prose."
+                  aria-label="Help for system instruction"
+                >?</button>
+              </label>
+              <textarea
+                id="systemPromptInput"
+                class="textarea-tall"
+                spellcheck="false"
+                placeholder="System instruction for your model"
+              ></textarea>
+
+              <div class="row buttons wrap toolbar-row">
+                <button id="resetSystemPromptBtn" class="secondary" type="button">Reset system instruction</button>
+              </div>
+            </div>
+
+            <div class="editor-section response-card">
+              <div class="response-header">
+                <div>
+                  <label class="label-with-help" for="llmResponse">
+                    <span>LLM response</span>
+                    <button
+                      class="help-chip"
+                      type="button"
+                      data-tooltip="The raw model response is saved here exactly as returned. If it is valid suggestion JSON, the add-in also auto-loads it into the suggestions panel. You can still edit it here and manually reload it."
+                      title="The raw model response is saved here exactly as returned. If it is valid suggestion JSON, the add-in also auto-loads it into the suggestions panel. You can still edit it here and manually reload it."
+                      aria-label="Help for LLM response"
+                    >?</button>
+                  </label>
+                  <p class="hint">Auto-loads suggestions when valid JSON is received. Manual copy and load controls remain available below.</p>
+                </div>
+                <div id="responseAutoLoadBadge" class="mini-badge neutral">Awaiting response</div>
+              </div>
+
+              <textarea
+                id="llmResponse"
+                class="textarea-medium"
+                spellcheck="false"
+                placeholder="The raw model response will appear here."
+              ></textarea>
+
+              <div class="row buttons wrap toolbar-row compact-tools">
+                <button id="copyResponseToJsonBtn" class="secondary" type="button" aria-label="Copy response to JSON box" title="Copy response to JSON box">Copy to JSON</button>
+                <button id="loadResponseBtn" class="secondary" type="button" aria-label="Load response as suggestions" title="Load response as suggestions">Load suggestions</button>
+              </div>
+            </div>
+            <div class="editor-section response-card advanced-json-card">
+              <div class="response-header">
+                <div>
+                  <h3>Manual JSON tools</h3>
+                  <p class="hint">Optional. Paste or edit suggestion JSON directly when you want to bypass the normal LLM flow.</p>
+                </div>
+                <button
+                  id="toggleJsonSectionBtn"
+                  class="secondary section-toggle icon-button"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="jsonSectionBody"
+                  aria-label="Expand JSON section"
+                  title="Expand JSON section"
+                  data-expanded-icon="▾"
+                  data-collapsed-icon="▸"
+                  data-expanded-label="Collapse JSON section"
+                  data-collapsed-label="Expand JSON section"
+                >▸</button>
+              </div>
+
+              <div id="jsonSectionBody" class="hidden">
+                <label class="label-with-help" for="jsonInput">
+                  <span>Suggestion JSON</span>
+                  <button
+                    class="help-chip"
+                    type="button"
+                    data-tooltip="Expected format: a top-level JSON array of suggestion objects. Markdown fences are okay; they will be stripped automatically when possible."
+                    title="Expected format: a top-level JSON array of suggestion objects. Markdown fences are okay; they will be stripped automatically when possible."
+                    aria-label="Help for suggestion JSON"
+                  >?</button>
+                </label>
+                <textarea id="jsonInput" class="textarea-medium" spellcheck="false" placeholder='[
+  {
+    "group": 1,
+    "original": "This report is divided into the following chapters:",
+    "replacement": "This report is organized as follows:",
+    "original_span": "divided into the following chapters",
+    "replacement_span": "organized as follows",
+    "reasoning_summary": "This change makes the wording more concise and formal."
+  }
+]'></textarea>
+                <div class="row buttons wrap toolbar-row compact-tools">
+                  <button id="loadBtn" type="button">Load suggestions</button>
+                  <button id="copyOutputInstructionsBtn" class="secondary" type="button">Copy output instructions</button>
+                  <button id="trackingBtn" class="secondary" type="button">Check Track Changes</button>
+                </div>
+                <div id="globalStatus" class="status neutral">Ready.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="panel section-panel">
+      <div class="section-header">
+        <div>
+          <div class="section-step">Step 2</div>
+          <div class="label-with-help section-title-row">
+            <h2>Set the instructions</h2>
+            <button
+              class="help-chip"
+              type="button"
+              data-tooltip="Set the edit request for this run, then add any persistent style preferences such as keeping hyphens instead of em dashes."
+              title="Set the edit request for this run, then add any persistent style preferences such as keeping hyphens instead of em dashes."
+              aria-label="Help for edit instructions"
+            >?</button>
+          </div>
+          <p class="hint">The edit request applies to this run. The style guide is saved locally and reused across sessions until you change it.</p>
+        </div>
+      </div>
+
+      <div class="settings-card preset-summary-card">
+          <div class="preset-card-header">
+            <div>
+              <label class="label-with-help" for="llmProvider">
+                <span>Model preset</span>
+                <button
+                  class="help-chip"
+                  type="button"
+                  data-tooltip="Choose Google Smart (gemini-3.1-pro-preview), Google Fast (gemini-3-flash-preview), ChatGPT / OpenAI (gpt-5.4), Internal (localhost + qwen/qwen3.5-35b-a3b), or Custom. API key and advanced overrides live in Settings."
+                  title="Choose Google Smart (gemini-3.1-pro-preview), Google Fast (gemini-3-flash-preview), ChatGPT / OpenAI (gpt-5.4), Internal (localhost + qwen/qwen3.5-35b-a3b), or Custom. API key and advanced overrides live in Settings."
+                  aria-label="Help for model preset"
+                >?</button>
+              </label>
+              <p class="hint">Choose the model preset for this proofreading run. Advanced endpoint, prompt, and manual JSON tools remain under Advanced.</p>
+            </div>
+          </div>
+
+          <div class="form-grid form-grid-provider preset-toolbar">
+            <div>
+              <select id="llmProvider" aria-label="Model preset">
+                <option value="google-slow">Google — Smart</option>
+                <option value="google-fast">Google — Fast</option>
+                <option value="openai">ChatGPT / OpenAI</option>
+                <option value="internal">Internal</option>
+                <option value="custom">Custom / OpenAI-compatible</option>
+                <option value="manual">Manual / Copilot</option>
+              </select>
+            </div>
+            <div class="row buttons wrap preset-actions preset-actions-inline">
+              <button id="applyProviderPresetBtn" class="secondary" type="button">Reset preset values</button>
+              <button id="saveAsCustomBtn" class="secondary" type="button">Save as custom</button>
+              <button
+                id="toggleAdvancedPanelBtn"
+                class="secondary icon-button settings-inline-btn"
+                type="button"
+                aria-expanded="false"
+                aria-controls="advancedPanelBody"
+                aria-label="Open settings"
+                title="Open settings"
+                data-expanded-icon="⚙"
+                data-collapsed-icon="⚙"
+                data-expanded-label="Close settings"
+                data-collapsed-label="Open settings"
+              >⚙</button>
+            </div>
+          </div>
+        </div>
+
+      <div class="instruction-grid">
+        <div class="editor-section instruction-card">
+          <label class="label-with-help" for="chatInput">
+            <span>LLM instructions</span>
+            <button
+              class="help-chip"
+              type="button"
+              data-tooltip="Describe the exact edit pass you want. You can use the preset menu or write your own instructions here."
+              title="Describe the exact edit pass you want. You can use the preset menu or write your own instructions here."
+              aria-label="Help for LLM instructions"
+            >?</button>
+          </label>
+          <textarea
+            id="chatInput"
+            class="textarea-medium"
+            spellcheck="false"
+            placeholder="Examples:
+- Tighten the highlighted paragraph.
+- Review the whole document for consistency of numbers and text.
+- Proofread only.
+- Improve tone without changing meaning."
+          ></textarea>
+
+          <div class="inline-request-toolbar toolbar-row compact-request-toolbar">
+            <div class="inline-request-leading" aria-label="Prompt presets and send action">
+              <div class="preset-menu">
+                <button
+                  id="chatPromptMenuBtn"
+                  class="secondary preset-menu-trigger"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded="false"
+                  aria-controls="chatPromptMenu"
+                  title="Choose a ready-made edit request preset."
+                >Presets ▾</button>
+                <div id="chatPromptMenu" class="preset-menu-list hidden" role="menu">
+                  <button class="preset-menu-item" type="button" role="menuitem" data-prompt-preset="comprehensive" data-tooltip="Comprehensive: broad review for clarity, consistency, tone, grammar, spelling, capitalization, and internal alignment when supported by the source text." title="Comprehensive: broad review for clarity, consistency, tone, grammar, spelling, capitalization, and internal alignment when supported by the source text.">Comprehensive</button>
+                  <button class="preset-menu-item" type="button" role="menuitem" data-prompt-preset="clarity" data-tooltip="Clarity: tighten wording, improve sentence structure, and make logic easier to follow without changing meaning." title="Clarity: tighten wording, improve sentence structure, and make logic easier to follow without changing meaning.">Clarity</button>
+                  <button class="preset-menu-item" type="button" role="menuitem" data-prompt-preset="consistency" data-tooltip="Consistency: align numbers, dates, units, labels, capitalization, and repeated references across the provided text." title="Consistency: align numbers, dates, units, labels, capitalization, and repeated references across the provided text.">Consistency of numbers and text</button>
+                  <button class="preset-menu-item" type="button" role="menuitem" data-prompt-preset="tone" data-tooltip="Tone: make the writing more formal, neutral, professional, and publication-ready without shifting meaning." title="Tone: make the writing more formal, neutral, professional, and publication-ready without shifting meaning.">Tone</button>
+                  <button class="preset-menu-item" type="button" role="menuitem" data-prompt-preset="proofreading" data-tooltip="Proofreading: fix grammar, spelling, punctuation, capitalization, and obvious typos only." title="Proofreading: fix grammar, spelling, punctuation, capitalization, and obvious typos only.">Proofreading</button>
+                  <button class="preset-menu-item" type="button" role="menuitem" data-prompt-preset="custom" data-tooltip="Custom / current text: keep the current request exactly as written." title="Custom / current text: keep the current request exactly as written.">Custom / current text</button>
+                </div>
+              </div>
+              <select id="chatPromptPreset" class="visually-hidden" aria-label="Prompt preset">
+                <option value="comprehensive">Comprehensive</option>
+                <option value="clarity">Clarity</option>
+                <option value="consistency">Consistency of numbers and text</option>
+                <option value="tone">Tone</option>
+                <option value="proofreading">Proofreading</option>
+                <option value="custom">Custom / current text</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="editor-section style-guide-card">
+          <div class="card-header">
+            <div>
+              <label class="label-with-help" for="styleGuideInput">
+                <span>Style guide</span>
+                <button
+                  class="help-chip"
+                  type="button"
+                  data-tooltip="Optional. Add persistent preferences such as 'Do not replace hyphens with em dashes' or 'Keep capitalization of Ministry names exactly as written.' This is saved across sessions on this device."
+                  title="Optional. Add persistent preferences such as 'Do not replace hyphens with em dashes' or 'Keep capitalization of Ministry names exactly as written.' This is saved across sessions on this device."
+                  aria-label="Help for style guide"
+                >?</button>
+              </label>
+              <p class="hint">Saved locally and applied to every request until you change or clear it.</p>
+            </div>
+            <div id="styleGuideSavedBadge" class="mini-badge neutral">Saved locally</div>
+          </div>
+          <textarea
+            id="styleGuideInput"
+            class="textarea-medium"
+            spellcheck="false"
+            placeholder="Examples:
+- Do not replace hyphens with em dashes.
+- Preserve existing numbering and capitalization conventions.
+- Keep ministry and program names exactly as written unless the source text itself is inconsistent."
+          ></textarea>
+          <div class="row buttons wrap toolbar-row compact-tools">
+            <button id="clearStyleGuideBtn" class="secondary" type="button">Clear style guide</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="send-action-row send-action-row-simple">
+        <div class="send-action-card send-action-card-full">
+          <button id="sendAndLoadBtn" type="button">Send</button>
+        </div>
+      </div>
+
+      <div id="copilotPastePanel" class="copilot-paste-panel hidden">
+        <div class="card-header">
+          <div>
+            <h3>Paste AI response</h3>
+            <p class="hint">Copy the Copilot (or any AI assistant) output and paste it here, then click Parse.</p>
+          </div>
+        </div>
+        <textarea
+          id="copilotResponseInput"
+          class="textarea-medium"
+          spellcheck="false"
+          placeholder="Paste the AI response here…"
+        ></textarea>
+        <div class="row buttons wrap toolbar-row compact-tools">
+          <button id="parseCopilotResponseBtn" type="button">Parse response</button>
+        </div>
+        <div id="copilotParseStatus" class="status neutral hidden"></div>
+      </div>
+
+      <details id="requestSection" class="request-section hidden" open>
+        <summary class="request-section-summary">
+          <span class="request-section-title">LLM request</span>
+          <span id="requestStateBadge" class="mini-badge neutral">Ready</span>
+        </summary>
+        <div class="request-section-body">
+          <div id="requestFeedback" class="request-feedback neutral" aria-live="polite">
+            <div class="request-feedback-header">
+              <strong>Latest request status</strong>
+            </div>
+            <div id="requestProgressText" class="request-feedback-body">Nothing sent yet.</div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="workspace-grid">
+      <section class="panel panel-fill">
+        <div class="section-header simple-header">
+          <div>
+            <div class="section-step">Step 3</div>
+            <h2>Suggestions</h2>
+            <p class="hint">Choose a suggestion to inspect the sentence, the exact span, and the rationale.</p>
+          </div>
+        </div>
+        <ul id="groupList" class="group-list" aria-label="Suggestion groups"></ul>
+      </section>
+
+      <section class="panel panel-fill review-panel">
+        <div class="section-header simple-header">
+          <div>
+            <div class="section-step">Step 4</div>
+            <h2>Review selected suggestion</h2>
+            <p class="hint">Find the exact sentence in Word, confirm the minimal span, then apply the replacement.</p>
+          </div>
+        </div>
+        <div id="detailEmpty" class="empty-state">Load suggestions and choose one group.</div>
+        <div id="detailPane" class="detail hidden">
+          <div class="detail-meta detail-meta-grid hidden">
+            <div class="meta-card">
+              <span class="meta-label">Group</span>
+              <strong id="detailGroup"></strong>
+            </div>
+            <div class="meta-card">
+              <span class="meta-label">Sentence match count</span>
+              <strong id="detailMatchCount">–</strong>
+            </div>
+            <div class="meta-card">
+              <span class="meta-label">Status</span>
+              <strong id="detailStatus">–</strong>
+            </div>
+          </div>
+
+          <label>Original sentence</label>
+          <pre id="detailOriginal" class="doc-block"></pre>
+
+          <label>Replacement sentence</label>
+          <pre id="detailReplacement" class="doc-block"></pre>
+
+          <label>Minimal changed span</label>
+          <div id="detailSpanPreview" class="diff-preview"></div>
+
+          <label>Edit rationale</label>
+          <div id="detailReasoning" class="reasoning-box"></div>
+
+          <div class="row buttons wrap toolbar-row action-bar">
+            <button id="findBtn" class="secondary" type="button">Find </button>
+            <button id="prevMatchBtn" class="secondary icon-button" type="button" aria-label="Previous match" title="Previous match">←</button>
+            <button id="nextMatchBtn" class="secondary icon-button" type="button" aria-label="Next match" title="Next match">→</button>
+            <button id="applyBtn" type="button">Apply </button>
+          </div>
+
+          <div class="row buttons wrap toolbar-row group-nav-row">
+            <button id="prevGroupBtn" class="secondary" type="button">Previous group</button>
+            <button id="nextGroupBtn" class="secondary" type="button">Next group</button>
+          </div>
+
+          <div id="groupStatus" class="status neutral">No action yet.</div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+
+  <div id="apiKeyModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="apiKeyModalTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="apiKeyModalTitle">Enter your API key</h3>
+          <p class="hint">This is saved locally in the add-in and reused for the selected preset.</p>
+        </div>
+        <button id="closeApiKeyModalBtn" class="secondary icon-button" type="button" aria-label="Close API key dialog" title="Close">✕</button>
+      </div>
+      <input id="apiKeyModalInput" type="password" placeholder="Enter your API key" spellcheck="false" />
+      <div id="apiKeyModalStatus" class="hint modal-status"></div>
+      <div class="row buttons wrap toolbar-row modal-actions">
+        <button id="saveApiKeyModalBtn" type="button">Save key</button>
+        <button id="openSettingsFromApiKeyModalBtn" class="secondary" type="button">Open settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="taskpane.js?v=25"></script>
+</body>
+</html>
