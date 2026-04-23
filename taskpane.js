@@ -2489,8 +2489,12 @@ function scrollSelectedGroupIntoView() {
 
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (_) {
+      // Permissions policy may block the async API; fall through to execCommand.
+    }
   }
 
   const helper = document.createElement('textarea');
