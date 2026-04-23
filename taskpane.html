@@ -528,6 +528,21 @@
         </div>
       </div>
 
+      <details id="manualPromptPanel" class="copilot-paste-panel hidden">
+        <summary class="request-section-summary">
+          <span class="request-section-title">Prompt (copy manually)</span>
+        </summary>
+        <div class="request-section-body">
+          <p class="hint">Clipboard access was blocked. Select all and copy the text below, then paste it into your AI assistant.</p>
+          <textarea
+            id="manualPromptOutput"
+            class="textarea-tall"
+            spellcheck="false"
+            readonly
+          ></textarea>
+        </div>
+      </details>
+
       <div id="copilotPastePanel" class="copilot-paste-panel hidden">
         <div class="card-header">
           <div>

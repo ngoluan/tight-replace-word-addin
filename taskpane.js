@@ -503,6 +503,10 @@ function bindElements() {
     copilotResponseInput: document.getElementById('copilotResponseInput'),
     parseCopilotResponseBtn: document.getElementById('parseCopilotResponseBtn'),
     copilotParseStatus: document.getElementById('copilotParseStatus'),
+
+    // Fallback manual-copy prompt panel
+    manualPromptPanel: document.getElementById('manualPromptPanel'),
+    manualPromptOutput: document.getElementById('manualPromptOutput'),
   });
 }
 
@@ -1347,18 +1351,39 @@ async function onCopyManualPrompt() {
       : await getDocumentTextForCurrentMode({ refresh: true });
 
     const fullPrompt = buildManualFullPrompt({ systemPrompt, documentText, userPrompt, styleGuide });
-    await copyTextToClipboard(fullPrompt);
 
-    if (els.copilotPastePanel) {
-      els.copilotPastePanel.classList.remove('hidden');
-      els.copilotResponseInput?.focus();
+    let clipboardOk = false;
+    try {
+      await copyTextToClipboard(fullPrompt);
+      clipboardOk = true;
+    } catch (_) {
+      // Clipboard blocked — fall through to manual panel.
     }
 
-    setLlmStatus('Full prompt copied to clipboard. Paste it into Copilot, then paste the response in the box below.', 'success');
-    updateRequestFeedback('Copied', 'success', 'Full prompt copied to clipboard. Paste the AI response into the box that appeared below.');
+    if (clipboardOk) {
+      if (els.copilotPastePanel) {
+        els.copilotPastePanel.classList.remove('hidden');
+        els.copilotResponseInput?.focus();
+      }
+      setLlmStatus('Full prompt copied to clipboard. Paste it into Copilot, then paste the response in the box below.', 'success');
+      updateRequestFeedback('Copied', 'success', 'Full prompt copied to clipboard. Paste the AI response into the box that appeared below.');
+    } else {
+      if (els.manualPromptPanel && els.manualPromptOutput) {
+        els.manualPromptOutput.value = fullPrompt;
+        els.manualPromptPanel.classList.remove('hidden');
+        els.manualPromptPanel.open = true;
+        els.manualPromptOutput.focus();
+        els.manualPromptOutput.select();
+      }
+      if (els.copilotPastePanel) {
+        els.copilotPastePanel.classList.remove('hidden');
+      }
+      setLlmStatus('Clipboard blocked — copy the prompt from the box below manually.', 'warning');
+      updateRequestFeedback('Manual copy needed', 'warning', 'Clipboard access was blocked. The prompt is shown below — copy it manually, then paste the AI response.');
+    }
   } catch (error) {
-    setLlmStatus(`Could not copy prompt: ${error.message}`, 'error');
-    updateRequestFeedback('Failed', 'error', `Could not copy prompt: ${error.message}`);
+    setLlmStatus(`Could not build prompt: ${error.message}`, 'error');
+    updateRequestFeedback('Failed', 'error', `Could not build prompt: ${error.message}`);
   }
 }
 
@@ -2489,12 +2514,8 @@ function scrollSelectedGroupIntoView() {
 
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return;
-    } catch (_) {
-      // Permissions policy may block the async API; fall through to execCommand.
-    }
+    await navigator.clipboard.writeText(text);
+    return;
   }
 
   const helper = document.createElement('textarea');
